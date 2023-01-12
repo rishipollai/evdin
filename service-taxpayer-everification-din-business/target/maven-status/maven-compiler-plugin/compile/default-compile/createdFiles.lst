@@ -1,0 +1,3 @@
+com\lti\idss\service\taxpayer\everification\list\business\service\DINListService.class
+com\lti\idss\service\taxpayer\everification\list\business\controller\DINListController.class
+com\lti\idss\service\taxpayer\everification\list\business\Application.class

@@ -1,0 +1,191 @@
+##################################################################################################
+# AIS Other Information Exposure Service
+##################################################################################################
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{.Values.serviceName}}
+  namespace: {{.Values.namespace}}
+  labels:
+    app: {{.Values.serviceName}}
+    app.kubernetes.io/component: {{.Values.serviceName}}
+    app.kubernetes.io/instance: {{.Values.serviceName}}
+    app.kubernetes.io/part-of: {{.Values.serviceType}}
+    service: {{.Values.serviceName}}
+spec:
+  ports:
+    - name: http-8082
+      port: 8082
+      targetPort: 8082
+  selector:
+    app: {{.Values.serviceName}}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{.Values.serviceName}}
+  labels:
+    account: {{.Values.serviceName}}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{.Values.serviceName}}
+  namespace: {{.Values.namespace}}
+  labels:
+    app: {{.Values.serviceName}}
+    app.kubernetes.io/part-of: {{.Values.serviceType}}
+spec:
+  replicas: {{.Values.replicaCount}}
+  selector:
+    matchLabels:
+      app: {{.Values.serviceName}}
+  template:
+    metadata:
+      annotations:
+        sidecar.istio.io/inject: "true"
+        sidecar.istio.io/proxyCPU: 100m
+        sidecar.istio.io/proxyCPULimit: 500m
+        sidecar.istio.io/proxyMemory: 512Mi
+        sidecar.istio.io/proxyMemoryLimit: 512Mi
+      labels:
+        app: {{.Values.serviceName}}
+    spec:
+      serviceAccountName: {{.Values.serviceName}}
+      containers:
+        - name: {{.Values.serviceName}}
+          image: {{ .Values.image.repository }}/{{.Values.namespace}}/{{.Values.serviceName}}:{{.Values.image.tag}}
+          env:
+          - name: ais_generated_financial_years
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: ais_generated_financial_years
+
+          - name: cassandra_port
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: cassandra_port
+
+          - name: cassandra_host
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: cassandra_host
+
+          - name: cassandra_keyspace
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: cassandra_keyspace
+
+          - name: cassandra_username
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: cassandra_username
+
+          - name: cassandra_password
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: cassandra_password
+
+          - name: cassandra_datacenter
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: cassandra_datacenter
+
+          - name: postgres_url
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: postgres_url
+
+          - name: postgres_username
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: postgres_username
+
+          - name: postgres_password
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: postgres_password
+
+          - name: default_hot_connection_pool_size
+            valueFrom:
+              configMapKeyRef:
+                name: config-map-ais
+                key: default_hot_connection_pool_size
+
+          resources:
+            requests:
+              memory: {{.Values.requestLimit}}
+              cpu: {{.Values.requestcpu}}
+            limits:
+              memory: {{.Values.memoryLimit}}
+              cpu: {{.Values.cpulimit}}
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8082
+          readinessProbe:
+            httpGet:
+              path: /{{.Values.contextRoot}}/actuator/health/readiness
+              port: 8082
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+            periodSeconds: 3
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
+              path: /{{.Values.contextRoot}}/actuator/health/liveness
+              port: 8082
+            initialDelaySeconds: 10
+            timeoutSeconds: 2
+            periodSeconds: 8
+            failureThreshold: 3
+
+
+        - name: jaeger-agent
+          image: {{.Values.jaegarImageUrl}}
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5775
+              name: zk-compact-trft
+              protocol: UDP
+            - containerPort: 5778
+              name: config-rest
+              protocol: TCP
+            - containerPort: 6831
+              name: jg-compact-trft
+              protocol: UDP
+            - containerPort: 6832
+              name: jg-binary-trft
+              protocol: UDP
+            - containerPort: 14271
+              name: admin-http
+              protocol: TCP
+          args:
+            - --reporter.grpc.host-port={{.Values.jaegarUDPHostPort}}
+            - --reporter.type=grpc
+          resources:
+            limits:
+              cpu: '500m'
+              memory: 500Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz/ready
+              port: 15021
+              scheme: HTTP
+            initialDelaySeconds: 1
+            timeoutSeconds: 1
+            periodSeconds: 2
+            successThreshold: 1
+            failureThreshold: 30

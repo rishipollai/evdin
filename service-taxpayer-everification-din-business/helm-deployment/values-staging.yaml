@@ -1,0 +1,25 @@
+replicaCount: 1
+requestLimit: 400Mi
+memoryLimit: 1Gi
+requestcpu: 1
+cpulimit: 1
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 1
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 70
+image:
+  repository: registry-quay-rh-quay-registry.apps.idsstestmz.insight.local
+  pullPolicy: Always
+  # Overrides the image tag whose default is the chart appVersion.
+  tag: "latest"
+
+namespace: "staging-idss-microservice"
+serviceName: "service-taxpayer-everification-din-business"
+contextRoot: "evDin"
+serviceType: "business-service"
+
+
+jaegarImageUrl: registry.redhat.io/distributed-tracing/jaeger-agent-rhel8@sha256:e713c563702c53fbaa48902b73142aad3a58b2ba408402763acc4f8eae7cb129
+jaegarUDPHostPort: dns:///allinone-collector-headless.idss-microservice.svc:14250
